@@ -1,0 +1,11 @@
+password.py
+__pycache__/
+__pycache__
+__pycache__\password.cpython-311.pyc
+serverlog.txt
+config.ini
+build/
+dist/
+server.spec
+env/
+```
