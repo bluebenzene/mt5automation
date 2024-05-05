@@ -1,4 +1,14 @@
-# multiple account place order in mt5 
+# Get Alert from Tradingview and place order on MetaTrader 5 
+this program can place orders in Metatrader 5 terminal automatically when receive message from Tradingview . 
+
+## Install 
+`pip install -r requirements.txt`
+open port 80 
+
+
+
+
+## multiple account place order in mt5 
 it can run multiple accounts for that you need to clone the folder again that installed in the program files. Only runs in windows. 
 
 
