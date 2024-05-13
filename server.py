@@ -72,6 +72,7 @@ def close_positions(account, symbol):
                 "comment": "Close position via webhook",
                 "type_time": mt5.ORDER_TIME_GTC,
                 "type_filling": mt5.ORDER_FILLING_IOC,
+                
             }
             result = mt5.order_send(close_request)
             if result.retcode != mt5.TRADE_RETCODE_DONE:
@@ -128,7 +129,65 @@ def place_order(account_id, symbol, lot, order_type=mt5.ORDER_TYPE_BUY):
         logger.info(f"Order_send done for account {account_id}, {result}")
         mt5.shutdown()
         return True
-    
+def reducepos(account, symbol, lot):
+    # Initialize MT5 for the specific account
+    if not mt5.initialize(path=account['path']):
+        logger.error(f"initialize() failed for account {account['id']}, error code: {mt5.last_error()}")
+        return False
+
+    # Login to the account
+    if not mt5.login(int(account['id']), account['password'], account['server']):
+        logger.error(f"Failed to login to account {account['id']}, error code: {mt5.last_error()}")
+        mt5.shutdown()
+        return False
+
+    # Select the symbol
+    if not mt5.symbol_select(symbol, True):
+        logger.error(f"Failed to select symbol {symbol} for account {account['id']}")
+        mt5.shutdown()
+        return False
+
+    # Retrieve the current position for the specified symbol
+    positions = mt5.positions_get(symbol=symbol)
+    if positions is None or len(positions) == 0:
+        logger.info(f"No positions to reduce for symbol {symbol} in account {account['id']}")
+        mt5.shutdown()
+        return False
+
+    for position in positions:
+        close_volume = min(position.volume, lot)  # Determine the volume to reduce
+        if position.type == mt5.POSITION_TYPE_BUY:
+            order_type = mt5.ORDER_TYPE_SELL
+            price = mt5.symbol_info_tick(symbol).bid
+        else:
+            order_type = mt5.ORDER_TYPE_BUY
+            price = mt5.symbol_info_tick(symbol).ask
+
+        request = {
+            'action': mt5.TRADE_ACTION_DEAL,
+            'symbol': symbol,
+            'volume': close_volume,
+            'type': order_type,
+            'position': position.ticket,
+            'price': price,
+            'deviation': 20,
+            'magic': 0,
+            'comment': 'Reduce position via webhook',
+            'type_time': mt5.ORDER_TIME_GTC,
+            'type_filling': mt5.ORDER_FILLING_IOC,
+        }
+
+        result = mt5.order_send(request)
+        if result.retcode != mt5.TRADE_RETCODE_DONE:
+            logger.error(f"Failed to reduce position {position.ticket} for account {account['id']}, retcode: {result.retcode}")
+        else:
+            logger.info(f"Reduced position {position.ticket} for account {account['id']} by {close_volume} lots")
+            break  # Assuming you only want to reduce the first matching position
+
+    mt5.shutdown()
+    return True
+
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     requester_ip = request.remote_addr
@@ -141,6 +200,7 @@ def webhook():
     logger.info(f"Received message: {message}")
 
     symbol = message.get('symbol')
+    reduce = message.get('reduce', False)
     close_action = message.get('close')
     account_id = message.get('account')
     side = message.get('side')
@@ -155,7 +215,20 @@ def webhook():
         else:
             logger.error(f"Account {account_id} not found.")
             return jsonify({"error": "Account not found"}), 404
-
+    if reduce:
+        for account in accounts:
+            account_id_key = f"{account['id']}lot"
+            lot_size = message.get(account_id_key)
+            if lot_size:
+                lot_size = float(lot_size)
+                logger.info(f"Reducing position for {symbol} in account {account['id']} to lot size {lot_size}")
+                success = reducepos(account, symbol, lot_size)
+                if success:
+                    logger.info(f"Position reduced successfully for account {account['id']}")
+                    return jsonify({"message": f"Position reduced for account {account['id']}"}), 200
+                else:
+                    logger.error(f"Failed to reduce position for account {account['id']}")
+                    return jsonify({"error": "Failed to reduce position"}), 500
     for account in accounts:
         lot_key = f"{account['id']}lot"
         lot_size = message.get(lot_key)
@@ -174,6 +247,7 @@ def webhook():
                     logger.info(f"Order placed successfully for account {account['id']}")
                 else:
                     logger.error(f"Failed to place order for account {account['id']}")
+        
 
     return jsonify({"message": "Orders processed"}), 200
 
