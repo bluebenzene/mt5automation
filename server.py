@@ -67,7 +67,7 @@ def close_positions(account, symbol):
                 "type": mt5.ORDER_TYPE_SELL if position.type == mt5.ORDER_TYPE_BUY else mt5.ORDER_TYPE_BUY,
                 "position": position.ticket,
                 "price": mt5.symbol_info_tick(symbol).bid if position.type == mt5.ORDER_TYPE_BUY else mt5.symbol_info_tick(symbol).ask,
-                "deviation": 20,
+                "deviation": deviation,
                 "magic": 0,
                 "comment": "Close position via webhook",
                 "type_time": mt5.ORDER_TIME_GTC,
@@ -141,8 +141,20 @@ def webhook():
     logger.info(f"Received message: {message}")
 
     symbol = message.get('symbol')
+    close_action = message.get('close')
+    account_id = message.get('account')
     side = message.get('side')
     order_type = mt5.ORDER_TYPE_BUY if side == 'buy' else mt5.ORDER_TYPE_SELL
+    if close_action == "all":
+        # Find the account dictionary by account ID
+        account = next((acc for acc in accounts if acc['id'] == account_id), None)
+        if account:
+            # Close all positions for this account and symbol
+            close_positions(account, symbol)
+            return jsonify({"message": "All positions closed"}), 200
+        else:
+            logger.error(f"Account {account_id} not found.")
+            return jsonify({"error": "Account not found"}), 404
 
     for account in accounts:
         lot_key = f"{account['id']}lot"
