@@ -41,7 +41,10 @@ path = C:\\Program Files\\MetaTrader 5 EXNESS\\terminal64.exe
 `[{"symbol":"GBPUSD","side":"buy","1alot":"1","2alot":"2","3alot":"3"}]`
 
 ## message to close 
-`[{"symbol":"BTCUSDm","close":"all"}]`
+`[{"symbol":"BTCUSDm","account":"116437666","close":"all"}]`
+
+## message to reduce position for tp 
+`[{"symbol":"BTCUSDm","reduce":true,"116437666lot":"0.01"}]`
 
 ## package
 `pyinstaller --onefile --hidden-import=MetaTrader5 --hidden-import=flask --hidden-import=numpy server.py`
