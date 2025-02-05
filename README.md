@@ -1,4 +1,4 @@
-# Get Alert from Tradingview and place order on MetaTrader 5 
+# Get Alert from Tradingview and place order on MetaTrader 5 using python-metatrader 
 this program can place orders in Metatrader 5 terminal automatically when receive message from Tradingview . 
 
 ## Install 
